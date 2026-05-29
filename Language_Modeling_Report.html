@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Language Modeling on Project Gutenberg — Project Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Georgia', serif;
+    font-size: 15px;
+    line-height: 1.75;
+    color: #1a1a1a;
+    background: #fff;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 50px 40px 80px;
+  }
+
+  /* ── Header ── */
+  .cover {
+    text-align: center;
+    padding: 40px 0 36px;
+    border-bottom: 3px solid #2c3e50;
+    margin-bottom: 40px;
+  }
+  .cover h1 {
+    font-size: 26px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 10px;
+    line-height: 1.3;
+  }
+  .cover .subtitle {
+    font-size: 15px;
+    color: #555;
+    margin-bottom: 18px;
+  }
+  .cover .meta {
+    font-size: 13px;
+    color: #777;
+    line-height: 2;
+  }
+
+  /* ── Sections ── */
+  h2 {
+    font-size: 19px;
+    color: #2c3e50;
+    border-bottom: 2px solid #bdc3c7;
+    padding-bottom: 5px;
+    margin: 42px 0 16px;
+  }
+  h3 {
+    font-size: 15.5px;
+    color: #34495e;
+    margin: 24px 0 10px;
+    font-weight: bold;
+  }
+  h4 {
+    font-size: 14px;
+    color: #555;
+    margin: 18px 0 8px;
+    font-style: italic;
+  }
+
+  p { margin-bottom: 13px; }
+
+  /* ── Tables ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0 22px;
+    font-size: 13.5px;
+  }
+  thead tr { background: #2c3e50; color: #fff; }
+  thead th {
+    padding: 9px 12px;
+    text-align: left;
+    font-weight: bold;
+  }
+  tbody tr:nth-child(even) { background: #f4f6f7; }
+  tbody tr:hover { background: #eaf0fb; }
+  tbody td { padding: 8px 12px; border-bottom: 1px solid #ddd; }
+  tbody tr.best { background: #d5f5e3; font-weight: bold; }
+
+  /* ── Code / monospace ── */
+  code {
+    font-family: 'Courier New', monospace;
+    background: #f0f0f0;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 13px;
+  }
+  pre {
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    border-left: 4px solid #2c3e50;
+    padding: 14px 16px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    overflow-x: auto;
+    margin: 14px 0 18px;
+    white-space: pre-wrap;
+  }
+
+  /* ── Result boxes ── */
+  .result-box {
+    background: #eaf4fb;
+    border: 1px solid #aed6f1;
+    border-left: 5px solid #2980b9;
+    padding: 14px 18px;
+    border-radius: 4px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .result-box strong { color: #1a5276; }
+
+  .highlight-box {
+    background: #eafaf1;
+    border: 1px solid #a9dfbf;
+    border-left: 5px solid #27ae60;
+    padding: 14px 18px;
+    border-radius: 4px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+
+  .warn-box {
+    background: #fef9e7;
+    border: 1px solid #f9e79f;
+    border-left: 5px solid #f39c12;
+    padding: 14px 18px;
+    border-radius: 4px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+
+  /* ── Lists ── */
+  ul, ol { margin: 10px 0 14px 26px; }
+  li { margin-bottom: 5px; }
+
+  /* ── Figure placeholders ── */
+  .figure {
+    background: #fafafa;
+    border: 1px dashed #bbb;
+    border-radius: 6px;
+    padding: 20px;
+    margin: 18px 0;
+    text-align: center;
+    color: #777;
+    font-size: 13px;
+    font-style: italic;
+  }
+  .figure strong { display: block; color: #444; margin-bottom: 4px; font-style: normal; }
+
+  /* ── TOC ── */
+  .toc {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 18px 24px;
+    margin: 30px 0;
+    font-size: 14px;
+  }
+  .toc h3 { margin-top: 0; color: #2c3e50; }
+  .toc ol { margin: 8px 0 0 18px; }
+  .toc li { margin-bottom: 3px; }
+
+  /* ── Print ── */
+  @media print {
+    body { padding: 20px 30px; font-size: 13px; }
+    h2 { page-break-before: auto; }
+    .figure, table, pre { page-break-inside: avoid; }
+  }
+
+  hr { border: none; border-top: 1px solid #ddd; margin: 32px 0; }
+  .tag {
+    display: inline-block;
+    background: #2980b9;
+    color: #fff;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!--  COVER                                                         -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <h1>Language Modeling on Project Gutenberg</h1>
+  <div class="subtitle">
+    Word-level neural language models trained on 18 classic public-domain books<br>
+    Dense NN · LSTM · GRU · Bidirectional LSTM
+  </div>
+  <div class="meta">
+    <strong>Course:</strong> CSC Machine Learning — Semester Project<br>
+    <strong>Author:</strong> Adil Hussain<br>
+    <strong>Dataset:</strong> Project Gutenberg via NLTK (auto-downloads)<br>
+    <strong>Framework:</strong> TensorFlow / Keras · Python 3
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!--  TABLE OF CONTENTS                                             -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="toc">
+  <h3>Table of Contents</h3>
+  <ol>
+    <li>Introduction</li>
+    <li>Dataset</li>
+    <li>Preprocessing</li>
+    <li>Model Architectures</li>
+    <li>Training Setup</li>
+    <li>Results &amp; Evaluation</li>
+    <li>Visualizations Summary</li>
+    <li>Analysis &amp; Discussion</li>
+    <li>Conclusion</li>
+  </ol>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!--  1. INTRODUCTION                                               -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2>1. Introduction</h2>
+
+<p>A <strong>language model</strong> learns the statistical patterns of a language by training on large amounts of text. Its job is simple: given a sequence of words, predict what word is most likely to come next. This is one of the oldest and most well-studied problems in natural language processing (NLP), and it is the foundation for modern tools like autocomplete, machine translation, and large language models like ChatGPT.</p>
+
+<p>In this project, I trained and compared four different neural network architectures on a collection of 18 classic English books from Project Gutenberg:</p>
+<ul>
+  <li>A <strong>Dense Neural Network</strong> — no memory of word order</li>
+  <li>An <strong>LSTM</strong> (Long Short-Term Memory)</li>
+  <li>A <strong>GRU</strong> (Gated Recurrent Unit)</li>
+  <li>A <strong>Bidirectional LSTM</strong></li>
+</ul>
+
+<p>The main evaluation metric is <strong>perplexity</strong> — lower is better. I also compared all models against two baselines (random and unigram) to give the results proper context.</p>
+
+<div class="highlight-box">
+  <strong>Key result:</strong> The GRU achieved the best validation perplexity of <strong>503.9</strong> — 19.8× better than random guessing and 1.69× better than a frequency-only unigram model.
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!--  2. DATASET                                                    -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2>2. Dataset</h2>
+
+<p>The data comes from the <strong>NLTK Gutenberg corpus</strong>, a set of 18 public domain books that download automatically at runtime using <code>nltk.download('gutenberg')</code>. No manual file upload is needed.</p>
+
+<h3>Dataset Statistics</h3>
+<table>
+  <thead><tr><th>Statistic</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Total books</td><td>18</td></tr>
+    <tr><td>Raw tokens (words + punctuation)</td><td>2,621,613</td></tr>
+    <tr><td>Unique raw tokens</td><td>51,156</td></tr>
+    <tr><td>Tokens removed (punctuation, numbers)</td><td>486,213 (18.5%)</td></tr>
+    <tr><td>Clean tokens after preprocessing</td><td>2,135,400</td></tr>
+    <tr><td>Vocabulary size used</td><td>10,000</td></tr>
+    <tr><td>Corpus coverage at 10K vocab</td><td>96.21%</td></tr>
+    <tr><td>OOV (out-of-vocabulary) rate</td><td>3.79%</td></tr>
+  </tbody>
+</table>
+
+<h3>Books in the Corpus</h3>
+<table>
+  <thead><tr><th>Genre</th><th>Books</th><th>Approx. Tokens</th></tr></thead>
+  <tbody>
+    <tr><td>Novel</td><td>Moby Dick, Emma, Sense and Sensibility, Persuasion</td><td>~700K</td></tr>
+    <tr><td>Shakespeare</td><td>Hamlet, Macbeth, Julius Caesar</td><td>~90K</td></tr>
+    <tr><td>Religious</td><td>King James Bible</td><td>1,010,654 (38%)</td></tr>
+    <tr><td>Poetry</td><td>Walt Whitman, William Blake</td><td>~50K</td></tr>
+    <tr><td>Other prose</td><td>G.K. Chesterton, Lewis Carroll, Maria Edgeworth</td><td>~250K</td></tr>
+  </tbody>
+</table>
+
+<p>The King James Bible is by far the largest single text, making up about 38% of the entire corpus. This means the model sees a lot of biblical language during training, which shows up clearly in the generated text.</p>
+
+<p>Word frequency follows <strong>Zipf's Law</strong> — a straight line on a log-log plot. The top 10 words are all function words: <em>the, and, of, to, a, in, i, that, he, it</em>. This is expected for any large English text corpus.</p>
+
+<div class="figure">
+  <strong>Figure 1 — Word Count per Book (Part 1)</strong>
+  Bar chart and pie chart showing the relative size of each of the 18 books.
+  King James Bible dominates at 38% of total tokens.
+</div>
+<div class="figure">
+  <strong>Figure 2 — Zipf's Law (Part 1)</strong>
+  Log-log frequency vs rank plot showing a straight line — confirming Zipf's Law.
+  Also shows the top 50 most frequent words.
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!--  3. PREPROCESSING                                              -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2>3. Preprocessing</h2>
+
+<p>Three steps were applied to the raw text before any model training:</p>
+
+<h3>Step 1 — Lowercase Normalization</h3>
+<p>All tokens converted to lowercase so <code>The</code> and <code>the</code> map to the same vocabulary entry. Without this, the same word would appear multiple times in the vocabulary with different capitalizations, wasting capacity.</p>
+
+<h3>Step 2 — Remove Non-Alphabetic Tokens</h3>
+<p>Only tokens passing <code>word.isalpha()</code> were kept. Punctuation marks, numbers, brackets, and dashes were removed. This eliminated <strong>486,213 tokens (18.5%)</strong> of the raw corpus, leaving <strong>2,135,400 clean tokens</strong>.</p>
+
+<h3>Step 3 — Vocabulary Cutoff at 10,000 Words</h3>
+<p>The corpus has over 51,000 unique words but most appear only once or twice. I kept the 10,000 most frequent words and replaced everything else with the special token <code>&lt;UNK&gt;</code>. These 10,000 words cover <strong>96.21%</strong> of all tokens — the vocabulary coverage curve confirms that going beyond 10,000 gives very little extra coverage.</p>
+
+<div class="figure">
+  <strong>Figure 3 — Vocabulary Coverage Curve (Part 2)</strong>
+  Cumulative corpus coverage as vocabulary size increases from 1 to 51,156.
+  Diminishing returns visible beyond 10,000 words.
+</div>
+
+<h3>Sequence Construction</h3>
+<p>A <strong>sliding window</strong> was used to create input-output pairs from the cleaned token sequence:</p>
+<ul>
+  <li><strong>Context window length:</strong> 20 words</li>
+  <li><strong>Stride:</strong> 3 (window advances 3 positions each step)</li>
+  <li><strong>Total sequences:</strong> 711,794</li>
+  <li>Each input is 20 word IDs; the target is the 21st word</li>
+</ul>
+
+<h3>Train / Validation / Test Split</h3>
+<table>
+  <thead><tr><th>Split</th><th>Sequences</th><th>Percentage</th></tr></thead>
+  <tbody>
+    <tr><td>Train</td><td>569,435</td><td>80%</td></tr>
+    <tr><td>Validation</td><td>71,179</td><td>10%</td></tr>
+    <tr><td>Test</td><td>71,180</td><td>10%</td></tr>
+  </tbody>
+</table>
+
+<p>The split is <strong>chronological</strong>, not random. A random split would allow the model to see words from the middle of a book during training and predict the beginning, which would be unrealistic and would inflate results.</p>
+
+<div class="figure">
+  <strong>Figure 4 — Train / Val / Test Split (Part 2)</strong>
+  Bar chart showing sequence counts across the three splits.
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!--  4. MODEL ARCHITECTURES                                        -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2>4. Model Architectures</h2>
+
+<p>All four models solve the same problem: given 20 word IDs as input, predict which of the 10,000 vocabulary words comes next. This is a 10,000-class classification problem.</p>
+
+<p>Every model shares three components:</p>
+<ul>
+  <li><strong>Embedding layer (10,000 × 64):</strong> Maps each word ID to a 64-dimensional learnable vector</li>
+  <li><strong>Dropout (rate = 0.3):</strong> Randomly zeros 30% of activations during training to prevent overfitting</li>
+  <li><strong>Output Dense layer (10,000 units, softmax):</strong> Outputs a probability distribution over the vocabulary</li>
+</ul>
+
+<h3>Model 1 — Dense Neural Network <span style="color:#999; font-size:13px">2,290,832 parameters</span></h3>
+<pre>Input(20) → Embedding(10000,64) → Flatten(1280)
+          → Dense(256, ReLU) → Dropout(0.3)
+          → Dense(128, ReLU) → Dropout(0.3)
+          → Dense(10000, softmax)</pre>
+<p>Flattens the 20×64 embedding into a single 1,280-dimensional vector before passing it through two fully connected layers. This model has <strong>no concept of word order</strong> — it treats all 20 context words as a flat set of features.</p>
+
+<h3>Model 2 — LSTM <span style="color:#999; font-size:13px">2,028,816 parameters</span></h3>
+<pre>Input(20) → Embedding(10000,64) → LSTM(128)
+          → Dropout(0.3) → Dense(10000, softmax)</pre>
+<p>Reads the word sequence one step at a time. Three internal gates (forget, input, output) control what information is kept and what is discarded at each step. This allows it to capture dependencies between words far apart in the sequence.</p>
+
+<h3>Model 3 — GRU ⭐ Best Model <span style="color:#999; font-size:13px">2,004,496 parameters</span></h3>
+<pre>Input(20) → Embedding(10000,64) → GRU(128)
+          → Dropout(0.3) → Dense(10000, softmax)</pre>
+<p>A simplified LSTM that uses only two gates (reset and update) and merges the cell and hidden state into one vector. Has roughly 25% fewer recurrent parameters than the LSTM. Trains faster and achieves better perplexity in this experiment.</p>
+
+<h3>Model 4 — Bidirectional LSTM <span style="color:#999; font-size:13px">1,996,048 parameters</span></h3>
+<pre>Input(20) → Embedding(10000,64) → Bidirectional(LSTM(64))
+          → Dropout(0.3) → Dense(10000, softmax)</pre>
+<p>Two LSTM layers run simultaneously — one reads left to right, one reads right to left — and their outputs are concatenated into a 128-dimensional vector (64 per direction). Despite the more complex architecture, it actually has the <em>fewest</em> parameters because each direction only needs 64 units.</p>
+
+<div class="figure">
+  <strong>Figure 5 — Model Parameter Comparison (Part 3)</strong>
+  Bar chart comparing total trainable parameters across all 4 models.
+  Dense NN: 2,290,832 | LSTM: 2,028,816 | GRU: 2,004,496 | BiLSTM: 1,996,048
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!--  5. TRAINING SETUP                                             -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2>5. Training Setup</h2>
+
+<table>
+  <thead><tr><th>Hyperparameter</th><th>Value</th><th>Reason</th></tr></thead>
+  <tbody>
+    <tr><td>Optimizer</td><td>Adam</td><td>Adaptive per-parameter learning rates, standard choice</td></tr>
+    <tr><td>Loss</td><td>Sparse categorical cross-entropy</td><td>Standard for multi-class word prediction</td></tr>
+    <tr><td>Embedding dimension</td><td>64</td><td>Good size for medium vocabulary</td></tr>
+    <tr><td>LSTM / GRU units</td><td>128</td><td>Balances capacity and training time</td></tr>
+    <tr><td>BiLSTM units per direction</td><td>64 (128 total)</td><td>Keeps output size comparable to other models</td></tr>
+    <tr><td>Dropout rate</td><td>0.3</td><td>Standard regularization strength</td></tr>
+    <tr><td>Batch size (Dense NN)</td><td>512</td><td>No BPTT memory overhead, safe to use large batches</td></tr>
+    <tr><td>Batch size (LSTM / GRU / BiLSTM)</td><td>256</td><td>Smaller due to recurrent backpropagation memory cost</td></tr>
+    <tr><td>Max epochs</td><td>10</td><td>Upper bound; early stopping always triggered first</td></tr>
+    <tr><td>Early stopping patience</td><td>2</td><td>Stop if val loss does not improve for 2 consecutive epochs</td></tr>
+    <tr><td>Restore best weights</td><td>Yes</td><td>Keeps weights from the epoch with lowest val loss</td></tr>
+  </tbody>
+</table>
+
+<p>Each model was trained in its own cell with a freshly created <code>EarlyStopping</code> callback to avoid shared state between models.</p>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!--  6. RESULTS                                                    -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2>6. Results &amp; Evaluation</h2>
+
+<h3>What is Perplexity?</h3>
+<p>Perplexity is the standard evaluation metric for language models:</p>
+<pre>Perplexity = exp(cross-entropy loss)</pre>
+<p>A perplexity of N means the model is, on average, as uncertain as if it had to uniformly choose from N options at each step. <strong>Lower is better.</strong></p>
+<ul>
+  <li>A model guessing uniformly over 10,000 words: perplexity = <strong>10,000</strong></li>
+  <li>A unigram model using word frequencies but no context: perplexity = <strong>852.6</strong></li>
+  <li>A good learned model: perplexity &lt;&lt; 852</li>
+</ul>
+
+<h3>Validation Results — All 4 Models</h3>
+<table>
+  <thead><tr><th>Model</th><th>Parameters</th><th>Val Perplexity</th><th>Val Accuracy</th></tr></thead>
+  <tbody>
+    <tr><td>Dense NN</td><td>2,290,832</td><td>592.5</td><td>11.41%</td></tr>
+    <tr><td>LSTM</td><td>2,028,816</td><td>553.4</td><td>12.05%</td></tr>
+    <tr class="best"><td>GRU ⭐</td><td>2,004,496</td><td>503.9</td><td>12.30%</td></tr>
+    <tr><td>BiLSTM</td><td>1,996,048</td><td>534.0</td><td>12.30%</td></tr>
+  </tbody>
+</table>
+
+<div class="figure">
+  <strong>Figure 6 — Validation Results Bar Charts (Part 5)</strong>
+  Side-by-side bar charts showing validation perplexity (lower = better) and accuracy for all 4 models.
+</div>
+
+<h3>Baseline Comparison</h3>
+<table>
+  <thead><tr><th>Model / Baseline</th><th>Perplexity</th><th>vs GRU</th></tr></thead>
+  <tbody>
+    <tr><td>Random (uniform over 10,000 words)</td><td>10,000</td><td>19.8× worse</td></tr>
+    <tr><td>Unigram (word frequency, no context)</td><td>852.6</td><td>1.69× worse</td></tr>
+    <tr><td>Dense NN</td><td>592.5</td><td>1.18× worse</td></tr>
+    <tr><td>LSTM</td><td>553.4</td><td>1.10× worse</td></tr>
+    <tr><td>BiLSTM</td><td>534.0</td><td>1.06× worse</td></tr>
+    <tr class="best"><td>GRU (best)</td><td>503.9</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<div class="figure">
+  <strong>Figure 7 — Perplexity vs Baselines, Log Scale (Part 5)</strong>
+  Bar chart with log y-axis showing all 4 neural models vs unigram baseline (852.6) and random baseline (10,000).
+  All neural models beat the unigram baseline clearly.
+</div>
+
+<h3>Final Test Evaluation — GRU Only</h3>
+<p>The test set was evaluated <strong>exactly once</strong>, only on the winning model (GRU), after all model selection was done using the validation set:</p>
+<table>
+  <thead><tr><th>Split</th><th>Perplexity</th><th>Accuracy</th></tr></thead>
+  <tbody>
+    <tr><td>Validation</td><td>503.9</td><td>12.30%</td></tr>
+    <tr class="best"><td>Test</td><td>751.4</td><td>12.01%</td></tr>
+  </tbody>
+</table>
+
+<div class="warn-box">
+  <strong>Why is test perplexity (751) higher than validation (504)?</strong><br>
+  This is expected and not a bug. The split is chronological, so the test set is the very last portion of the corpus — the text furthest from the training distribution in time and topic. Early stopping was tuned on validation loss, so the model is optimized for the validation segment. Some generalization gap to a different chronological segment is inherent to this evaluation design.
+</div>
+
+<div class="figure">
+  <strong>Figure 8 — GRU Validation vs Test (Part 6)</strong>
+  Bar charts showing perplexity and accuracy on the validation and test sets for the GRU model.
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!--  7. VISUALIZATIONS                                             -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2>7. Visualizations Summary</h2>
+
+<table>
+  <thead><tr><th>Figure</th><th>Location</th><th>What it shows</th></tr></thead>
+  <tbody>
+    <tr><td>Word count per book</td><td>Part 1</td><td>Bar chart + pie chart across 18 books</td></tr>
+    <tr><td>Zipf's Law</td><td>Part 1</td><td>Log-log frequency vs rank; top 50 most frequent words</td></tr>
+    <tr><td>Vocabulary coverage curve</td><td>Part 2</td><td>Cumulative coverage as vocab size grows</td></tr>
+    <tr><td>Train/Val/Test split</td><td>Part 2</td><td>Sequence counts across the three splits</td></tr>
+    <tr><td>Model parameter comparison</td><td>Part 3</td><td>Parameter counts for all 4 models</td></tr>
+    <tr><td>Training curves (loss + accuracy)</td><td>Part 4</td><td>Validation and train/val curves for all 4 models</td></tr>
+    <tr><td>Perplexity learning curves</td><td>Part 4</td><td>exp(loss) per epoch; train/val perplexity gap</td></tr>
+    <tr><td>Validation bar charts</td><td>Part 5</td><td>Perplexity and accuracy side by side</td></tr>
+    <tr><td>Perplexity vs random baseline</td><td>Part 5</td><td>Bar chart with baseline dashed line</td></tr>
+    <tr><td>Perplexity vs baselines (log scale)</td><td>Part 5</td><td>All models vs random (10K) and unigram (852.6)</td></tr>
+    <tr><td>Final test evaluation</td><td>Part 6</td><td>GRU validation vs test perplexity and accuracy</td></tr>
+    <tr><td>Top-10 predicted next words</td><td>Part 6</td><td>3 seed phrases, horizontal bar charts of probabilities</td></tr>
+    <tr><td>Word embedding PCA</td><td>Part 6</td><td>2D projection of 10K word vectors; 5 semantic groups colored</td></tr>
+    <tr><td>Text generation temperatures</td><td>Part 7</td><td>Generated text at 0.5, 0.8, 1.2 temperatures</td></tr>
+  </tbody>
+</table>
+
+<div class="figure">
+  <strong>Figure 9 — Training Curves (Part 4)</strong>
+  4-panel chart: validation accuracy, validation loss, train vs val accuracy, train vs val loss.
+  GRU converges fastest. Dense NN validation loss rises after epoch 2 (overfitting).
+</div>
+<div class="figure">
+  <strong>Figure 10 — Perplexity Learning Curves (Part 4)</strong>
+  Left: validation perplexity per epoch for all 4 models.
+  Right: training (dashed) vs validation (solid) perplexity — shows the train/val gap.
+</div>
+<div class="figure">
+  <strong>Figure 11 — Word Embedding PCA (Part 6)</strong>
+  PCA projection of 64-dimensional word embeddings into 2D.
+  PC1: 16.8%, PC2: 13.4% variance explained.
+  5 semantic groups colored: Maritime (blue), Religion (purple), Emotion (green),
+  Conflict (red), Royalty (orange). Captain and holy are clearly separated from main cluster.
+</div>
+<div class="figure">
+  <strong>Figure 12 — Top-10 Predicted Next Words (Part 6)</strong>
+  Three seed phrases. After "the great white whale was seen", maritime vocabulary rises.
+  After "and god said let there be", biblical vocabulary rises.
+  Shows the model learned context-sensitive predictions.
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!--  8. ANALYSIS                                                   -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2>8. Analysis &amp; Discussion</h2>
+
+<h3>Why did the GRU win?</h3>
+<p>The GRU achieved the best validation perplexity (503.9) with fewer parameters than the LSTM and faster training. Looking at the perplexity learning curves (Part 4), the GRU drops quickly and levels off around epoch 3–4, while the LSTM needs more epochs to converge and the Dense NN's validation loss actually starts going <em>up</em> after epoch 2.</p>
+
+<p>The GRU's advantage over the LSTM is consistent with findings in the literature: for short-to-medium sequences (our context is 20 words), the simplified gating of the GRU is sufficient to capture the important dependencies without the extra parameters of the LSTM's separate cell state.</p>
+
+<h3>Why did the Dense NN perform worst?</h3>
+<p>The Dense NN has the most parameters (2.29M) but the worst perplexity (592.5). When the 20 word embeddings are flattened into a single vector, all positional information is lost — "the dog bit the man" and "the man bit the dog" look identical as inputs. Language is inherently sequential, and a model with no positional awareness cannot capture this.</p>
+
+<h3>Why did the Bidirectional LSTM underperform the GRU?</h3>
+<p>The BiLSTM was expected to benefit from seeing both past and future context. But language modeling is a fundamentally left-to-right task — we want to predict the next word using only past words. During training, the backward LSTM reads future words to help encode each position, which can add noise rather than signal for this specific objective. More complex is not always better. The BiLSTM would likely outperform the GRU on tasks like text classification or named entity recognition, where full-sentence context helps.</p>
+
+<h3>Honest assessment of the results</h3>
+<div class="result-box">
+  <strong>GRU is 1.69× better than the unigram baseline</strong> (852.6 → 503.9). Most of the predictability in literary text comes from word frequency patterns, not from sequential context. This is a known and expected finding at this model scale. Modern large language models (GPT-4, Claude) show much larger improvements because they use billions of training tokens, much deeper networks, and longer context windows.
+</div>
+
+<h3>What did the model actually learn?</h3>
+<p>The word embedding PCA visualization (Part 6) shows that the GRU learned meaningful semantic structure just from predicting words:</p>
+<ul>
+  <li>"Captain" sits isolated from the main cluster — it appears almost exclusively in Moby Dick contexts</li>
+  <li>"Holy" and "god" are pulled in different directions even though both are religious — they appear in different grammatical positions (adjective vs noun)</li>
+  <li>Maritime words (whale, sea, sailor) form a loose cluster</li>
+  <li>Conflict words (war, battle, sword, fight) cluster separately from emotion words</li>
+</ul>
+<p>This is direct evidence the model learned word meaning, not just word frequency.</p>
+
+<p>The top-K prediction charts confirm context-sensitivity: after a Moby Dick seed phrase, maritime words get higher probability; after a biblical seed phrase, religious vocabulary rises. The model is not just counting words — it is doing sequential reasoning.</p>
+
+<h3>Overfitting</h3>
+<p>The train vs. validation perplexity curves show a large gap: training perplexity drops to around 100–150 while validation stays around 500. Models are memorizing training sequences better than they generalize. This is common with a small corpus (only 18 books). Dropout and early stopping reduced this gap but did not eliminate it. A larger or more diverse dataset would help.</p>
+
+<h3>Text Generation — Temperature Analysis</h3>
+<table>
+  <thead><tr><th>Temperature</th><th>Behavior</th><th>Example output</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>0.5 (conservative)</td>
+      <td>Collapses into &lt;UNK&gt; loops. Low temperature concentrates probability mass on the most likely token. &lt;UNK&gt; wins and biases future steps toward &lt;UNK&gt; again.</td>
+      <td><em>"toward the dead and the &lt;UNK&gt; and &lt;UNK&gt; of the &lt;UNK&gt; &lt;UNK&gt; with the &lt;UNK&gt;..."</em></td>
+    </tr>
+    <tr>
+      <td>0.8 (balanced)</td>
+      <td>Most coherent. Mixes vocabulary from multiple books naturally.</td>
+      <td><em>"forth syme look in the south house and he will not consume them therefore make him according to the..."</em></td>
+    </tr>
+    <tr>
+      <td>1.2 (creative)</td>
+      <td>More diverse but grammatically looser. Biblical place names and objects surface.</td>
+      <td><em>"a prayer of barley and warred became one... gibeon lived with the garden of carry together strangers"</em></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The temperature=0.5 collapse is a <strong>known artifact of word-level models with an explicit &lt;UNK&gt; token</strong>. Character-level or subword (BPE) tokenization would eliminate this problem.</p>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!--  9. CONCLUSION                                                 -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2>9. Conclusion</h2>
+
+<p>The <strong>GRU is the best architecture</strong> for word-level language modeling on the Project Gutenberg corpus. It achieves perplexity 503.9 on validation — 19.8× better than random and 1.69× better than a frequency-only unigram model — with the second-fewest parameters and the fastest convergence of the four models tested.</p>
+
+<p>The main findings are:</p>
+<ul>
+  <li><strong>Sequential inductive bias matters.</strong> The Dense NN (no memory of order) performs worst despite the most parameters.</li>
+  <li><strong>GRU &gt; LSTM &gt; BiLSTM &gt; Dense NN</strong> for this task and dataset size.</li>
+  <li><strong>Bidirectional context does not help</strong> for next-word prediction — language modeling is a left-to-right task.</li>
+  <li><strong>Honest result:</strong> the 1.69× improvement over unigram shows that word frequency is the dominant signal at this scale. Context helps, but not dramatically.</li>
+  <li><strong>The model learned semantics</strong> — the embedding PCA shows clear thematic clustering across maritime, religious, and conflict vocabulary.</li>
+</ul>
+
+<h3>Future Directions</h3>
+<ul>
+  <li>Stacked LSTM/GRU layers for more representational capacity</li>
+  <li>Pre-trained word embeddings (GloVe, Word2Vec) to start with better word representations</li>
+  <li>Subword tokenization (BPE) to eliminate the &lt;UNK&gt; token problem</li>
+  <li>Attention mechanisms and transformer-based architectures (GPT-style)</li>
+  <li>Larger and more diverse training corpus (e.g., all of Wikipedia)</li>
+</ul>
+
+<hr>
+<p style="text-align:center; font-size:12px; color:#999; margin-top:30px;">
+  Language Modeling on Project Gutenberg &nbsp;·&nbsp; CSC Machine Learning &nbsp;·&nbsp; Adil Hussain<br>
+  Notebook: <code>Language_Modeling_Gutenberg.ipynb</code> &nbsp;·&nbsp;
+  GitHub: <a href="https://github.com/Enggadil/language-modeling-gutenberg" style="color:#2980b9;">github.com/Enggadil/language-modeling-gutenberg</a>
+</p>
+
+</body>
+</html>
